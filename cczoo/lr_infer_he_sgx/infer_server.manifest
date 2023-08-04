@@ -1,0 +1,68 @@
+[libos]
+entrypoint = ""
+
+[loader]
+entrypoint = "file:/usr/lib/x86_64-linux-gnu/gramine/libsysdb.so"
+log_level = "error"
+insecure__use_cmdline_argv = true
+insecure__use_host_env = false
+pal_internal_mem_size = "128M"
+
+[loader.env]
+LD_LIBRARY_PATH = "/lib:/lib/x86_64-linux-gnu:/usr//lib/x86_64-linux-gnu"
+LC_ALL = "C"
+GRPC_VERBOSITY = "ERROR"
+
+[sys]
+enable_sigterm_injection = true
+
+[sys.stack]
+size = "16M"
+
+[fs]
+mounts = [
+    { path = "/lib", uri = "file:/usr/lib/x86_64-linux-gnu/gramine/runtime/glibc" },
+    { path = "/lib/x86_64-linux-gnu", uri = "file:/lib/x86_64-linux-gnu" },
+    { path = "/etc", uri = "file:/etc" },
+    { path = "/usr", uri = "file:/usr" },
+    { type = "tmpfs", path = "/var/tmp" },
+]
+
+[sgx]
+debug = false
+remote_attestation = false
+enable_stats = false
+nonpie_binary = true
+enclave_size = "2G"
+thread_num = 16
+trusted_files = [
+    { uri = "file:" },
+    { uri = "file:/usr/lib/x86_64-linux-gnu/gramine/libsysdb.so" },
+    { uri = "file:/usr/lib/x86_64-linux-gnu/gramine/runtime/glibc/" },
+    { uri = "file:/lib/x86_64-linux-gnu/" },
+    { uri = "file:/usr//lib/x86_64-linux-gnu/" },
+    { uri = "file:lrtest_mid_lrmodel.csv" },
+]
+allowed_files = [
+    "file:/usr/lib/ssl/openssl.cnf",
+    "file:/etc/ld.so.conf",
+    "file:/etc/gai.conf",
+    "file:/etc/host.conf",
+    "file:/etc/resolv.conf",
+    "file:/etc/nsswitch.conf",
+    "file:/etc/sgx_default_qcnl.conf",
+    "file:/etc/hosts",
+    "file:/etc/group",
+    "file:/etc/passwd",
+    "file:dynamic_config.json",
+]
+max_threads = 4
+isvprodid = 0
+isvsvn = 0
+require_avx = false
+require_avx512 = false
+require_mpx = false
+require_pkru = false
+require_amx = false
+require_exinfo = false
+edmm_enable = false
