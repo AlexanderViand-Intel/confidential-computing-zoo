@@ -66,10 +66,9 @@ RUN cmake -S. -Bbuild \
     && cp build/src/infer_server . \
     && cp datasets/lrtest_mid_lrmodel.csv .
 
-# # RUN make clean \
-# #     && ENTRYPOINT=infer_server make
-
-# RUN echo "/lr_infer_he_sgx/start_service.sh" >> ~/.bashrc
+RUN cd build && ENTRYPOINT=infer_server make
 
 ENV http_proxy=
 ENV https_proxy=
+
+ENTRYPOINT /lr_infer_he_sgx/build/src/infer_client

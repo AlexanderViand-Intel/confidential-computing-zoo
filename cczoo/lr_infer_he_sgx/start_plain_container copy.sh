@@ -37,12 +37,10 @@ if [ $1 = "client" ]; then
     docker run --name infer_client \
         --network=host \
         --cap-add=SYS_PTRACE \
-        --device=/dev/sgx_enclave:/dev/sgx/enclave \
-        --device=/dev/sgx_provision:/dev/sgx/provision \
         -e no_proxy=${no_proxy} \
         -e http_proxy=${proxy_server} \
         -e https_proxy=${proxy_server} \
-        lr_infer_he_sgx:latest \
+        lr_infer_he:latest \
         /lr_infer_he_sgx/build/src/infer_client --data datasets/lrtest_mid_eval.csv
 elif [ $1 = "server" ]; then
     container=$(echo `docker ps -a | grep infer_server`)
@@ -55,12 +53,10 @@ elif [ $1 = "server" ]; then
         --restart=unless-stopped \
         --cap-add=SYS_PTRACE \
         --security-opt seccomp=unconfined \
-        --device=/dev/sgx_enclave:/dev/sgx/enclave \
-        --device=/dev/sgx_provision:/dev/sgx/provision \
-        -e no_proxy=${no_proxy} \
+        -e no_proxy=${no_proxy} \ 
         -e http_proxy=${proxy_server} \
         -e https_proxy=${proxy_server} \
-        lr_infer_he_sgx:latest \
+        lr_infer_he:latest \
         /lr_infer_he_sgx/infer_server
 else
     Usage

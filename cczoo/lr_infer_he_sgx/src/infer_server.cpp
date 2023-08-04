@@ -22,33 +22,36 @@
 #include "seal/seal.h"
 #include "utils.hpp"
 #include "infer_server.hpp"
+#include "infer_client.hpp"
 
 DEFINE_string(
     model, "lrtest_mid_lrmodel.csv", "Model file to load.");
 
-void InferServer::initContext(std::stringstream& params_stream,
-  std::stringstream& pubkey_stream,
-  std::stringstream& relinkey_stream,
-  int security_level, double scale) {
+void InferServer::initContext(std::stringstream &params_stream,
+                              std::stringstream &pubkey_stream,
+                              std::stringstream &relinkey_stream,
+                              int security_level, double scale)
+{
   seal::EncryptionParameters params;
   params.load(params_stream);
 
   seal::sec_level_type sec_level;
-  switch (security_level) {
-    case 0:
-      sec_level = seal::sec_level_type::none;
-      break;
-    case 128:
-      sec_level = seal::sec_level_type::tc128;
-      break;
-    case 192:
-      sec_level = seal::sec_level_type::tc192;
-      break;
-    case 256:
-      sec_level = seal::sec_level_type::tc256;
-      break;
-    default:
-      throw std::runtime_error("ERROR: Security level must be one of [0, 128, 192, 256].");
+  switch (security_level)
+  {
+  case 0:
+    sec_level = seal::sec_level_type::none;
+    break;
+  case 128:
+    sec_level = seal::sec_level_type::tc128;
+    break;
+  case 192:
+    sec_level = seal::sec_level_type::tc192;
+    break;
+  case 256:
+    sec_level = seal::sec_level_type::tc256;
+    break;
+  default:
+    throw std::runtime_error("ERROR: Security level must be one of [0, 128, 192, 256].");
   }
 
   seal::SEALContext context = seal::SEALContext(params, true, sec_level);
@@ -69,17 +72,21 @@ void InferServer::initContext(std::stringstream& params_stream,
   loadWeights(FLAGS_model);
 }
 
-void InferServer::loadWeights(std::string& model_file) {
-  if (!fileExists(model_file)) throw std::runtime_error(model_file + " not found");
+void InferServer::loadWeights(std::string &model_file)
+{
+  if (!fileExists(model_file))
+    throw std::runtime_error(model_file + " not found");
   std::ifstream ifs(model_file);
 
   std::vector<std::vector<std::string>> rawdata = readCSV(ifs);
   std::vector<std::vector<double>> rawweights(rawdata.size());
 
-  for (size_t i = 0; i < rawdata.size(); i++) {
+  for (size_t i = 0; i < rawdata.size(); i++)
+  {
     std::transform(rawdata[i].begin(), rawdata[i].end(),
                    std::back_inserter(rawweights[i]),
-                   [](const std::string& val) { return std::stod(val); });
+                   [](const std::string &val)
+                   { return std::stod(val); });
   }
   // Encode Weights and Bias
   auto weights = std::vector<double>(rawweights[0].begin() + 1, rawweights[0].end());
@@ -91,30 +98,36 @@ void InferServer::loadWeights(std::string& model_file) {
     encoded_weights_[i] = encode(gsl::span(
         std::vector<double>(slot_count_, weights[i]).data(), slot_count_));
   encoded_bias_ = encode(
-    gsl::span(std::vector<double>(slot_count_, bias).data(), slot_count_));
+      gsl::span(std::vector<double>(slot_count_, bias).data(), slot_count_));
 }
 
 std::vector<seal::Ciphertext> InferServer::inference(
-  std::stringstream& input, int batches, int batch_size) {
+    std::stringstream &input, int batches, int batch_size)
+{
   std::vector<std::vector<seal::Ciphertext>> encrypted_data;
   encrypted_data.resize(batches);
-  for (int i = 0; i < batches; i++) {
+  for (int i = 0; i < batches; i++)
+  {
     encrypted_data[i].resize(batch_size);
   }
-  for (auto i = 0; i < batches; i++) {
-    for (auto j = 0; j < batch_size; j++) {
+  for (auto i = 0; i < batches; i++)
+  {
+    for (auto j = 0; j < batch_size; j++)
+    {
       encrypted_data[i][j].load(*context_, input);
     }
   }
   std::vector<seal::Ciphertext> ct_ret(batches);
 
-  for (int i = 0; i < batches; ++i) {
+  for (int i = 0; i < batches; ++i)
+  {
     ct_ret[i] = evaluateLRTransposed(encrypted_data[i]);
   }
   return ct_ret;
 }
 
-seal::Plaintext InferServer::encode(const gsl::span<const double>& v) {
+seal::Plaintext InferServer::encode(const gsl::span<const double> &v)
+{
   if (v.size() > slot_count_)
     throw std::invalid_argument(
         "Input vector size is larger than slot_count");
@@ -124,14 +137,16 @@ seal::Plaintext InferServer::encode(const gsl::span<const double>& v) {
   return pt_ret;
 }
 
-seal::Ciphertext InferServer::encrypt(const seal::Plaintext& v) {
+seal::Ciphertext InferServer::encrypt(const seal::Plaintext &v)
+{
   seal::Ciphertext ct_ret;
   encryptor_->encrypt(v, ct_ret);
   return ct_ret;
 }
 
 seal::Ciphertext InferServer::evaluateLRTransposed(
-    std::vector<seal::Ciphertext>& encrypted_data) {
+    std::vector<seal::Ciphertext> &encrypted_data)
+{
   // W * X
   seal::Ciphertext retval = vecMatProduct(encoded_weights_, encrypted_data);
 
@@ -148,18 +163,22 @@ seal::Ciphertext InferServer::evaluateLRTransposed(
 }
 
 seal::Ciphertext InferServer::vecMatProduct(
-    const std::vector<seal::Plaintext>& A_T_extended,
-    const std::vector<seal::Ciphertext>& B) {
+    const std::vector<seal::Plaintext> &A_T_extended,
+    const std::vector<seal::Ciphertext> &B)
+{
   size_t rows = A_T_extended.size();
   std::vector<seal::Ciphertext> retval(rows);
 
-  for (size_t r = 0; r < rows; ++r) {
+  for (size_t r = 0; r < rows; ++r)
+  {
     evaluator_->multiply_plain(B[r], A_T_extended[r], retval[r]);
   }
   // add all rows
   size_t step = 2;
-  while ((step / 2) < rows) {
-    for (size_t i = 0; i < rows; i += step) {
+  while ((step / 2) < rows)
+  {
+    for (size_t i = 0; i < rows; i += step)
+    {
       if ((i + step / 2) < rows)
         evaluator_->add_inplace(retval[i], retval[i + step / 2]);
     }
@@ -171,7 +190,8 @@ seal::Ciphertext InferServer::vecMatProduct(
   return retval[0];
 }
 
-void InferServer::matchLevel(seal::Ciphertext* a, seal::Plaintext* b) const {
+void InferServer::matchLevel(seal::Ciphertext *a, seal::Plaintext *b) const
+{
   int a_level = getLevel(*a);
   int b_level = getLevel(*b);
   if (a_level > b_level)
@@ -180,7 +200,8 @@ void InferServer::matchLevel(seal::Ciphertext* a, seal::Plaintext* b) const {
     evaluator_->mod_switch_to_inplace(*b, a->parms_id());
 }
 
-void InferServer::matchLevel(seal::Ciphertext* a, seal::Ciphertext* b) const {
+void InferServer::matchLevel(seal::Ciphertext *a, seal::Ciphertext *b) const
+{
   int a_level = getLevel(*a);
   int b_level = getLevel(*b);
   if (a_level > b_level)
@@ -190,18 +211,21 @@ void InferServer::matchLevel(seal::Ciphertext* a, seal::Ciphertext* b) const {
 }
 
 // Returns the level of the ciphertext
-size_t InferServer::getLevel(const seal::Ciphertext& cipher) const {
+size_t InferServer::getLevel(const seal::Ciphertext &cipher) const
+{
   return context_->get_context_data(cipher.parms_id())->chain_index();
 }
 
 // Returns the level of the plaintext
-size_t InferServer::getLevel(const seal::Plaintext& plain) const {
+size_t InferServer::getLevel(const seal::Plaintext &plain) const
+{
   return context_->get_context_data(plain.parms_id())->chain_index();
 }
 
 seal::Ciphertext InferServer::evaluatePolynomialVector(
-    const seal::Ciphertext& inputs, const gsl::span<const double>& coefficients,
-    bool is_minus) {
+    const seal::Ciphertext &inputs, const gsl::span<const double> &coefficients,
+    bool is_minus)
+{
   if (coefficients.empty())
     throw std::invalid_argument("coefficients cannot be empty");
 
@@ -215,15 +239,18 @@ seal::Ciphertext InferServer::evaluatePolynomialVector(
 
   seal::Ciphertext x_ref = inputs;
   seal::Ciphertext powx = inputs;
-  for (size_t d = 1; d <= degree; ++d) {
-    if (d > 1) {
+  for (size_t d = 1; d <= degree; ++d)
+  {
+    if (d > 1)
+    {
       evaluator_->multiply_inplace(powx, x_ref);
       evaluator_->relinearize_inplace(powx, relin_keys_);
       evaluator_->rescale_to_next_inplace(powx);
       matchLevel(&x_ref, &powx);
     }
 
-    if (coefficients[d] != 0.0) {
+    if (coefficients[d] != 0.0)
+    {
       seal::Plaintext pt_coeff = encode(gsl::span(
           std::vector<double>(slot_count_, multiplier * coefficients[d])
               .data(),
@@ -243,8 +270,9 @@ seal::Ciphertext InferServer::evaluatePolynomialVector(
   return retval;
 }
 
-Status InferServiceImpl::InitCtx(ServerContext* context,
-  const InitCtxRequest* request, InitCtxReply* reply) {
+Status InferServiceImpl::InitCtx(ServerContext *context,
+                                 const InitCtxRequest *request, InitCtxReply *reply)
+{
   std::stringstream params_stream;
   std::stringstream pubkey_stream;
   std::stringstream relinkey_stream;
@@ -257,16 +285,18 @@ Status InferServiceImpl::InitCtx(ServerContext* context,
   return Status::OK;
 }
 
-Status InferServiceImpl::Infer(ServerContext* context,
-  const InferRequest* request, InferReply* reply) {
+Status InferServiceImpl::Infer(ServerContext *context,
+                               const InferRequest *request, InferReply *reply)
+{
   std::stringstream data_stream;
   std::stringstream result_stream;
   data_stream << request->data();
   auto batches = request->batches();
-  auto batch_size =  request->batch_size();
+  auto batch_size = request->batch_size();
   auto ct_result = server_.inference(data_stream, batches, batch_size);
   auto counts = ct_result.size();
-  for (auto i = 0; i < counts; i++) {
+  for (auto i = 0; i < counts; i++)
+  {
     ct_result[i].save(result_stream);
   }
   reply->set_result(result_stream.str());
@@ -274,7 +304,8 @@ Status InferServiceImpl::Infer(ServerContext* context,
   return Status::OK;
 };
 
-void RunServer() {
+void RunServer()
+{
   std::string server_address("localhost:50051");
   InferServiceImpl infer_service;
 
@@ -287,7 +318,7 @@ void RunServer() {
   // clients. In this case it corresponds to an *synchronous* service.
   builder.RegisterService(&infer_service);
   // Adjust received message size as transferred messages are large
-  int msg_size = 60 * 1024 * 1024;  // 60MB
+  int msg_size = 60 * 1024 * 1024; // 60MB
   builder.SetMaxReceiveMessageSize(msg_size);
   // Finally assemble the server.
   std::unique_ptr<Server> server(builder.BuildAndStart());
@@ -298,9 +329,9 @@ void RunServer() {
   server->Wait();
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   RunServer();
   return 0;
 }
-

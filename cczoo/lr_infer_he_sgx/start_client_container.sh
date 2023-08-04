@@ -16,23 +16,20 @@
 
 set -e
 
-if  [ -z "$AZURE" ] ; then
-    azure=
-else
-    azure=1
-fi
 
 # You can remove no_proxy and proxy_server if your network doesn't need it
 no_proxy="localhost,127.0.0.1"
 proxy_server="" # your http proxy server
 
-cd `dirname $0`
 
-DOCKER_BUILDKIT=0 docker build \
-    --build-arg no_proxy=${no_proxy} \
-    --build-arg http_proxy=${proxy_server} \
-    --build-arg https_proxy=${proxy_server} \
-    --build-arg AZURE=${azure} \
-    -f Dockerfile \
-    -t lr_infer_he_sgx:latest \
-    .
+container=$(echo `docker ps -a | grep infer_client`)
+if [ -n "${container}" ]; then
+    docker stop infer_client && docker rm infer_client
+fi
+docker run --name infer_client \
+    --cap-add=SYS_PTRACE \
+    -e no_proxy=${no_proxy} \
+    -e http_proxy=${proxy_server} \
+    -e https_proxy=${proxy_server} \
+    lr_infer_he:latest \
+    /lr_infer_he_sgx/build/src/infer_client --data datasets/lrtest_mid_eval.csv

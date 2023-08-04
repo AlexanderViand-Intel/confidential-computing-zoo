@@ -33,6 +33,6 @@ DOCKER_BUILDKIT=0 docker build \
     --build-arg http_proxy=${proxy_server} \
     --build-arg https_proxy=${proxy_server} \
     --build-arg AZURE=${azure} \
-    -f DockerfilePlain \
+    -f DockerfileServer \
     -t lr_infer_he:latest \
     .

@@ -40,8 +40,8 @@ if [ $1 = "client" ]; then
         -e no_proxy=${no_proxy} \
         -e http_proxy=${proxy_server} \
         -e https_proxy=${proxy_server} \
-        lr_infer_he:latest \
-        /lr_infer_he/build/src/infer_client --data datasets/lrtest_mid_eval.csv
+        lr_infer_he_sgx:latest \
+        /lr_infer_he_sgx/build/src/infer_client --data datasets/lrtest_mid_eval.csv
 elif [ $1 = "server" ]; then
     container=$(echo `docker ps -a | grep infer_server`)
     echo $container
@@ -56,8 +56,8 @@ elif [ $1 = "server" ]; then
         -e no_proxy=${no_proxy} \
         -e http_proxy=${proxy_server} \
         -e https_proxy=${proxy_server} \
-        lr_infer_he:latest \
-        /lr_infer_he/infer_server
+        lr_infer_he_sgx:latest \
+        /lr_infer_he_sgx/infer_server
 else
     Usage
     exit 1

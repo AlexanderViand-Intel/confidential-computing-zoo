@@ -1,0 +1,65 @@
+SET UP AZURE ACCOUNT, NEEDS TO BE PAY AS YOU GO, NOT FREE TRIAL/ETC
+Create the most powerful DC VM you can. Might be a DC4sv2, or DC16sv3
+Quickstart - Create Intel SGX VM in the Azure Portal | Microsoft Learn
+Connect to the VM
+Set up docker on the VM:
+sudo apt update
+sudo apt install apt-transport-https ca-certificates curl software-properties-common -y
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install docker-ce -y
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo docker run hello-world
+sudo usermod -aG docker ${USER}
+Disconnect and reconnect so usergroup is updated and you can run docker without sudo. 
+(Only for development: Set up a deploy key for the repo)
+Follow the instructions at Secure Logistic Regression Inference with HE and Intel SGX — Confidential Computing Zoo documentation (cczoo.readthedocs.io)
+git clone REPO-TBD
+cd confidential-computing-zoo/cczoo/lr_infer_he_sgx
+AZURE=1 ./build_docker_image.sh
+Install Gramine according to Gramine installation options — Gramine documentation
+sudo curl -fsSLo /usr/share/keyrings/gramine-keyring.gpg https://packages.gramineproject.io/gramine-keyring.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gramine-keyring.gpg] https://packages.gramineproject.io/ $(lsb_release -sc) main" \ | sudo tee /etc/apt/sources.list.d/gramine.list
+
+sudo curl -fsSLo /usr/share/keyrings/intel-sgx-deb.asc https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-sgx-deb.asc] https://download.01.org/intel-sgx/sgx_repo/ubuntu $(lsb_release -sc) main" \ | sudo tee /etc/apt/sources.list.d/intel-sgx.list 
+
+sudo apt-get update
+sudo apt-get install gramine -y
+Install Gramine Schielded Containers 
+sudo apt-get install python3 python3-pip -y
+pip3 install docker jinja2 tomli tomli-w pyyaml
+cd && git clone https://github.com/gramineproject/gsc.git && cd gsc
+pp config.yaml.template config.yaml
+ ./gsc build-gramine base
+
+
+Then, youre on your own with:
+gsc – Gramine Shielded Containers — GSC Contributions documentation
+
+
+
+
+
+# clone this repo
+git clone https://github.com/AlexanderViand-Intel/confidential-computing-zoo.git
+
+cd confidential-computing-zoo/cczoo/lr_infer_he_sgx/
+
+
+# Build client image (lr_infer_he-client)
+./build_client_docker_image.sh
+
+# Build server iamge (lr_infer_he)
+./build_server_docker_image.sh
+
+# Setup Gramine version of image
+ ./gsc build lr_infer_he gsc.manifest 
+ ./gsc sign-image lr_infer_he enclave-key.pem 
+
+
+# MAKE SURE THE NETWORKS MATCH!!!
+./start_client_container.sh 
+docker run --device=/dev/sgx_enclave  --device=/dev/sgx_provision  --security-opt seccomp=unconfined   -v /var/run/aesmd/aesm.socket:/var/run/aesmd/aesm.socket -it   gsc-lr_infer_he 
